@@ -314,13 +314,13 @@ const fetchRemoteChangelog = async () => {
                     </div>
                   </div>
                   <a
-                    href='https://github.com/LunaTechLab/MoonTV'
+                    href='www.520937.xyz'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='inline-flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm rounded-lg transition-colors shadow-sm w-full'
                   >
                     <CheckCircle className='w-3 h-3 sm:w-4 sm:h-4' />
-                    前往仓库
+                    前去更新
                   </a>
                 </div>
               </div>
