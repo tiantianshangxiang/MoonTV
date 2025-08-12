@@ -55,35 +55,10 @@ export const VersionPanel: React.FC<VersionPanelProps> = ({
   }, [isOpen]);
 
   // 获取远程变更日志
-  const fetchRemoteChangelog = async () => {
-    try {
-      const response = await fetch(
-        'https://raw.githubusercontent.com/LunaTechLab/MoonTV/main/CHANGELOG'
-      );
-      if (response.ok) {
-        const content = await response.text();
-        const parsed = parseChangelog(content);
-        setRemoteChangelog(parsed);
+const fetchRemoteChangelog = async () => {
+  return; // 不执行任何远程请求
+};
 
-        // 检查是否有更新
-        if (parsed.length > 0) {
-          const latest = parsed[0];
-          setLatestVersion(latest.version);
-          setIsHasUpdate(
-            compareVersions(latest.version) === UpdateStatus.HAS_UPDATE
-          );
-        }
-      } else {
-        console.error(
-          '获取远程变更日志失败:',
-          response.status,
-          response.statusText
-        );
-      }
-    } catch (error) {
-      console.error('获取远程变更日志失败:', error);
-    }
-  };
 
   // 解析变更日志格式
   const parseChangelog = (content: string): RemoteChangelogEntry[] => {
