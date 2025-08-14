@@ -256,6 +256,8 @@ networks:
 | NEXT_PUBLIC_DOUBAN_IMAGE_PROXY      | 自定义豆瓣图片代理 URL                       | url prefix                       | (空)                                                                                                                       |
 | direct                              |
 | NEXT_PUBLIC_DISABLE_YELLOW_FILTER   | 关闭色情内容过滤                             | true/false                       | false                                                                                                                      |
+| NEXT_PUBLIC_TURNSTILE_SITE_KEY      | Cloudflare Turnstile站点密钥                 | 任意字符串                       | 0x4AAAAAABri7OqoFEkpgi9C                                                                                                   |
+| TURNSTILE_SECRET_KEY                | Cloudflare Turnstile密钥                     | 任意字符串                       | 0x4AAAAAABri7EJZ5VKGV-D6ZFKtQHS8AM8                                                                                       |
 
 NEXT_PUBLIC_DOUBAN_PROXY_TYPE 选项解释：
 

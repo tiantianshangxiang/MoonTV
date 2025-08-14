@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getConfig } from '@/lib/config';
 import { db } from '@/lib/db';
+import { verifyTurnstileToken } from '@/lib/turnstile';
 
 export const runtime = 'edge';
 
@@ -13,6 +14,8 @@ const STORAGE_TYPE =
     | 'redis'
     | 'upstash'
     | undefined) || 'localstorage';
+
+
 
 // 生成签名
 async function generateSignature(
@@ -88,9 +91,17 @@ export async function POST(req: NextRequest) {
         return response;
       }
 
-      const { password } = await req.json();
+      const { password, turnstileToken } = await req.json();
       if (typeof password !== 'string') {
         return NextResponse.json({ error: '密码不能为空' }, { status: 400 });
+      }
+
+      // 验证Turnstile token（仅在配置了密钥时验证）
+      if (turnstileToken && process.env.TURNSTILE_SECRET_KEY && !(await verifyTurnstileToken(turnstileToken))) {
+        return NextResponse.json(
+          { error: '人机验证失败' },
+          { status: 400 }
+        );
       }
 
       if (password !== envPassword) {
@@ -123,13 +134,21 @@ export async function POST(req: NextRequest) {
     }
 
     // 数据库 / redis 模式——校验用户名并尝试连接数据库
-    const { username, password } = await req.json();
+    const { username, password, turnstileToken } = await req.json();
 
     if (!username || typeof username !== 'string') {
       return NextResponse.json({ error: '用户名不能为空' }, { status: 400 });
     }
     if (!password || typeof password !== 'string') {
       return NextResponse.json({ error: '密码不能为空' }, { status: 400 });
+    }
+
+    // 验证Turnstile token（仅在配置了密钥时验证）
+    if (turnstileToken && process.env.TURNSTILE_SECRET_KEY && !(await verifyTurnstileToken(turnstileToken))) {
+      return NextResponse.json(
+        { error: '人机验证失败' },
+        { status: 400 }
+      );
     }
 
     // 可能是站长，直接读环境变量

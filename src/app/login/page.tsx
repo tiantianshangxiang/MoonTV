@@ -10,6 +10,8 @@ import { checkForUpdates, CURRENT_VERSION, UpdateStatus } from '@/lib/version';
 
 import { useSite } from '@/components/SiteProvider';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import Turnstile from '@/components/Turnstile';
+import { TURNSTILE_CONFIG } from '@/lib/turnstile';
 
 // 版本显示组件
 function VersionDisplay() {
@@ -76,6 +78,8 @@ function LoginPageClient() {
   const [loading, setLoading] = useState(false);
   const [shouldAskUsername, setShouldAskUsername] = useState(false);
   const [enableRegister, setEnableRegister] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>('');
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
   const { siteName } = useSite();
 
   // 在客户端挂载后设置配置
@@ -92,16 +96,46 @@ function LoginPageClient() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setTurnstileError(null);
 
     if (!password || (shouldAskUsername && !username)) return;
+    
+    // 检查是否配置了Turnstile密钥，如果没有配置则跳过验证
+    const hasTurnstileConfig = typeof window !== 'undefined' && 
+      (window as any).RUNTIME_CONFIG?.TURNSTILE_SITE_KEY;
+    
+    // 检查是否需要Turnstile验证
+    const needsTurnstileVerification = hasTurnstileConfig && !turnstileToken;
+    
+    if (needsTurnstileVerification) {
+      setTurnstileError('请完成人机验证');
+      return;
+    }
 
     try {
       setLoading(true);
+      
+      // 仅在配置了Turnstile时验证
+      if (hasTurnstileConfig && turnstileToken) {
+        const turnstileRes = await fetch('/api/verify-turnstile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: turnstileToken }),
+        });
+
+        if (!turnstileRes.ok) {
+          setTurnstileError('人机验证失败，请重试');
+          setTurnstileToken('');
+          return;
+        }
+      }
+
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           password,
+          turnstileToken,
           ...(shouldAskUsername ? { username } : {}),
         }),
       });
@@ -125,14 +159,43 @@ function LoginPageClient() {
   // 处理注册逻辑
   const handleRegister = async () => {
     setError(null);
+    setTurnstileError(null);
     if (!password || !username) return;
+    
+    // 检查是否配置了Turnstile密钥，如果没有配置则跳过验证
+    const hasTurnstileConfig = typeof window !== 'undefined' && 
+      (window as any).RUNTIME_CONFIG?.TURNSTILE_SITE_KEY;
+    
+    // 检查是否需要Turnstile验证
+    const needsTurnstileVerification = hasTurnstileConfig && !turnstileToken;
+    
+    if (needsTurnstileVerification) {
+      setTurnstileError('请完成人机验证');
+      return;
+    }
 
     try {
       setLoading(true);
+      
+      // 仅在配置了Turnstile时验证
+      if (hasTurnstileConfig && turnstileToken) {
+        const turnstileRes = await fetch('/api/verify-turnstile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: turnstileToken }),
+        });
+
+        if (!turnstileRes.ok) {
+          setTurnstileError('人机验证失败，请重试');
+          setTurnstileToken('');
+          return;
+        }
+      }
+
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, turnstileToken }),
       });
 
       if (res.ok) {
@@ -195,13 +258,41 @@ function LoginPageClient() {
             <p className='text-sm text-red-600 dark:text-red-400'>{error}</p>
           )}
 
+          {/* Turnstile验证组件 - 仅在配置了密钥时显示 */}
+          {typeof window !== 'undefined' && (window as any).RUNTIME_CONFIG?.TURNSTILE_SITE_KEY && (
+            <div className='space-y-2'>
+              <Turnstile
+                siteKey={TURNSTILE_CONFIG.SITE_KEY}
+                onVerify={(token) => {
+                  setTurnstileToken(token);
+                  setTurnstileError(null);
+                }}
+                onError={() => {
+                  setTurnstileError('验证失败，请重试');
+                  setTurnstileToken('');
+                }}
+                onExpire={() => {
+                  setTurnstileError('验证已过期，请重新验证');
+                  setTurnstileToken('');
+                }}
+                theme='light'
+                className='flex justify-center'
+              />
+              {turnstileError && (
+                <p className='text-sm text-red-600 dark:text-red-400 text-center'>
+                  {turnstileError}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* 登录 / 注册按钮 */}
           {shouldAskUsername && enableRegister ? (
             <div className='flex gap-4'>
               <button
                 type='button'
                 onClick={handleRegister}
-                disabled={!password || !username || loading}
+                disabled={!password || !username || loading || needsTurnstileVerification}
                 className='flex-1 inline-flex justify-center rounded-lg bg-blue-600 py-3 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50'
               >
                 {loading ? '注册中...' : '注册'}
@@ -209,7 +300,7 @@ function LoginPageClient() {
               <button
                 type='submit'
                 disabled={
-                  !password || loading || (shouldAskUsername && !username)
+                  !password || loading || (shouldAskUsername && !username) || needsTurnstileVerification
                 }
                 className='flex-1 inline-flex justify-center rounded-lg bg-green-600 py-3 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:from-green-600 hover:to-blue-600 disabled:cursor-not-allowed disabled:opacity-50'
               >
@@ -220,7 +311,7 @@ function LoginPageClient() {
             <button
               type='submit'
               disabled={
-                !password || loading || (shouldAskUsername && !username)
+                !password || loading || (shouldAskUsername && !username) || needsTurnstileVerification
               }
               className='inline-flex w-full justify-center rounded-lg bg-green-600 py-3 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:from-green-600 hover:to-blue-600 disabled:cursor-not-allowed disabled:opacity-50'
             >
